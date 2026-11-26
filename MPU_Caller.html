@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <title>MPU Caller</title>
+  <style>
+    :root{
+      --ikea-blue:#0058a3;
+      --ikea-blue-dark:#003e73;
+      --ikea-yellow:#ffda1a;
+      --page:#edf1f5;
+      --card:#ffffff;
+      --text:#17202a;
+      --muted:#667085;
+      --line:#d6dde6;
+      --green:#238636;
+      --green-dark:#176b2a;
+      --red:#c62828;
+      --shadow:0 6px 18px rgba(16,24,40,.10);
+      --font:"Noto IKEA Latin","Noto Sans",Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--page);color:var(--text);font-family:var(--font);font-size:16px}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .topbar{height:64px;background:var(--ikea-blue);display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,3vw,48px);box-shadow:0 2px 8px rgba(0,0,0,.18);position:sticky;top:0;z-index:20}
+    .brand{font-size:25px;font-weight:800;color:var(--ikea-yellow);letter-spacing:.2px;white-space:nowrap}
+    .header-actions{display:flex;align-items:center;gap:10px}
+    .header-btn{border:0;background:transparent;color:white;padding:10px 13px;border-radius:5px;font-weight:700}
+    .header-btn:hover,.header-btn:focus-visible{background:rgba(255,255,255,.14);outline:none}
+    .app-shell{max-width:1500px;margin:0 auto;padding:clamp(18px,3vw,42px)}
+    .panel-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(14px,2vw,28px);align-items:stretch}
+    .panel-grid.two-panels{grid-template-columns:repeat(2,minmax(0,1fr));max-width:1050px;margin-inline:auto}
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);min-height:430px;padding:clamp(20px,2.2vw,32px);display:flex;flex-direction:column}
+    .panel-title{margin:0 0 22px;font-size:clamp(19px,1.55vw,25px);font-weight:800;color:#202936}
+    .number-input{width:100%;height:80px;border:2px solid #9eb7d1;border-radius:5px;padding:12px 16px;font-size:clamp(24px,3vw,42px);font-weight:800;letter-spacing:2px;color:#132f4c;background:#fff;text-align:center}
+    .number-input:focus{outline:3px solid rgba(0,88,163,.16);border-color:var(--ikea-blue)}
+    .action-btn{width:100%;min-height:49px;border-radius:5px;font-weight:800;letter-spacing:.2px;margin-top:14px;background:#fff}
+    .call-btn{border:2px solid var(--ikea-blue);color:var(--ikea-blue)}
+    .call-btn:hover,.call-btn:focus-visible{background:var(--ikea-blue);color:#fff;outline:none}
+    .call-btn:disabled{opacity:.45;cursor:not-allowed;background:#f4f6f8;color:#667085}
+    .guide{margin-top:20px;padding:15px 17px;border-radius:5px;background:#f5f7fa;border:1px solid #e1e6ed;color:#566171;white-space:pre-line;font-size:14px;line-height:1.7;flex:1;overflow:auto}
+    .timer-panel{text-align:center}
+    .timer-display{font-variant-numeric:tabular-nums;font-size:clamp(72px,7.2vw,125px);font-weight:850;letter-spacing:-4px;line-height:1;margin:auto 0 30px;color:#141b24}
+    .timer-btn{border:2px solid var(--green);color:var(--green);margin-top:auto}
+    .timer-btn:hover,.timer-btn:focus-visible,.timer-btn.running{background:var(--green);color:#fff;outline:none}
+    .timer-btn.running{border-color:var(--green-dark)}
+    .saved-line{min-height:26px;margin-top:16px;color:var(--green);font-size:15px;font-weight:700}
+    .saved-line.empty{color:var(--muted);font-weight:500}
+    .history-list{display:flex;flex-direction:column;gap:11px;overflow:auto;max-height:335px;padding-right:3px}
+    .history-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #aac4de;border-left:5px solid var(--ikea-blue);border-radius:6px;padding:14px 16px;background:#fbfdff}
+    .history-number{font-size:clamp(25px,2.3vw,35px);font-weight:850;color:var(--ikea-blue);overflow-wrap:anywhere}
+    .history-time{font-size:14px;color:#667085;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .no-history{display:grid;place-items:center;min-height:230px;text-align:center;color:#7a8494;border:1px dashed #ccd4de;border-radius:7px;background:#fafbfc;padding:20px}
+    .flash{position:fixed;left:50%;bottom:28px;transform:translate(-50%,25px);opacity:0;pointer-events:none;background:#182230;color:#fff;border-radius:7px;padding:12px 18px;box-shadow:0 10px 25px rgba(0,0,0,.22);transition:.2s;z-index:60;font-weight:700;max-width:min(92vw,650px);text-align:center}
+    .flash.show{opacity:1;transform:translate(-50%,0)}
+    .flash.error{background:#8f1d1d}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(13,24,38,.64);display:none;align-items:center;justify-content:center;padding:24px;z-index:50}
+    .modal-backdrop.open{display:flex}
+    .modal{background:#fff;width:min(1080px,96vw);max-height:92vh;overflow:auto;border-radius:9px;box-shadow:0 22px 70px rgba(0,0,0,.38)}
+    .modal-header{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 25px}
+    .modal-title{margin:0;font-size:23px;color:var(--ikea-blue)}
+    .modal-title small{font-size:14px;color:#667085;font-weight:500}
+    .save-close{border:0;border-radius:5px;background:var(--ikea-blue);color:#fff;padding:11px 18px;font-weight:800;white-space:nowrap}
+    .save-close:hover,.save-close:focus-visible{background:var(--ikea-blue-dark);outline:3px solid rgba(0,88,163,.2)}
+    .settings-body{padding:24px 26px 30px}
+    .section-title{display:flex;align-items:center;gap:13px;margin:3px 0 20px;color:#344054;font-weight:800}
+    .section-title:before,.section-title:after{content:"";height:1px;background:#d7dde5;flex:1}
+    .section-title span{border:1px solid #cfd6df;border-radius:999px;background:#f6f7f9;padding:7px 16px;white-space:nowrap}
+    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 26px;margin-bottom:28px}
+    .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+    .field.full{grid-column:1/-1}
+    .field label{font-size:13px;font-weight:800;color:#475467}
+    .field input,.field select,.field textarea{width:100%;border:1px solid #aeb9c7;border-radius:4px;background:#fff;color:#182230;padding:9px 10px;min-height:39px}
+    .field textarea{min-height:112px;line-height:1.5;resize:vertical}
+    .field input:focus,.field select:focus,.field textarea:focus{outline:3px solid rgba(0,88,163,.13);border-color:var(--ikea-blue)}
+    .speed-row{display:grid;grid-template-columns:1fr auto;gap:9px}
+    .test-btn{border:0;border-radius:4px;background:var(--green);color:#fff;font-weight:800;padding:0 17px}
+    .test-btn:hover{background:var(--green-dark)}
+    .field-note{font-size:12px;color:#667085;margin-top:-2px}
+    .validation{font-size:12px;color:var(--red);font-weight:700;min-height:15px}
+    .footer-note{max-width:1500px;margin:8px auto 0;padding:0 clamp(18px,3vw,42px) 20px;color:#7b8491;font-size:12px;text-align:center}
+    @media(max-width:950px){
+      .panel-grid,.panel-grid.two-panels{grid-template-columns:1fr;max-width:720px;margin-inline:auto}
+      .panel{min-height:unset}
+      .timer-display{margin:20px 0 34px}
+      .form-grid{grid-template-columns:1fr}
+      .field.full{grid-column:auto}
+    }
+    @media(max-width:560px){
+      .topbar{height:auto;min-height:62px;padding:10px 14px;align-items:flex-start}
+      .brand{font-size:21px;padding-top:7px}
+      .header-actions{gap:0;flex-direction:column;align-items:flex-end}
+      .header-btn{padding:5px 8px;font-size:13px}
+      .app-shell{padding:14px}
+      .panel{padding:20px 17px}
+      .modal-backdrop{padding:0}
+      .modal{width:100vw;height:100vh;max-height:none;border-radius:0}
+      .modal-header{padding:14px}
+      .modal-title{font-size:19px}
+      .modal-title small{display:block;margin-top:2px}
+      .settings-body{padding:18px 14px 24px}
+      .section-title span{font-size:13px}
+      .save-close{padding:9px 12px;font-size:13px}
+      .history-row{grid-template-columns:1fr}
+      .history-time{justify-self:start}
+    }
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" id="appBrand">MPU Caller</div>
+    <nav class="header-actions" aria-label="Application actions">
+      <button class="header-btn" id="downloadBtn" type="button">Download CSV</button>
+      <button class="header-btn" id="settingsBtn" type="button">Settings</button>
+    </nav>
+  </header>
+
+  <main class="app-shell">
+    <div class="panel-grid" id="panelGrid">
+      <section class="panel" aria-labelledby="leftTitle">
+        <h1 class="panel-title" id="leftTitle">Call Customer (Enter)</h1>
+        <label for="orderInput" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Order number</label>
+        <input id="orderInput" class="number-input" inputmode="decimal" autocomplete="off" aria-describedby="guideText" autofocus />
+        <button id="callBtn" class="action-btn call-btn" type="button">CALL (Enter)</button>
+        <div class="guide" id="guideText">1. Press [+] to start the timer.
+2. Enter order number &amp; press [Enter] to call.
+3. Use dot (.) for multiple orders (e.g., 1234.5678).
+4. Press [+] to stop the timer when finished.</div>
+      </section>
+
+      <section class="panel timer-panel" id="timerPanel" aria-labelledby="timerTitle">
+        <h2 class="panel-title" id="timerTitle">Service Timer (+)</h2>
+        <div class="timer-display" id="timerDisplay" role="timer" aria-live="off">00:00</div>
+        <button id="timerBtn" class="action-btn timer-btn" type="button">START (+)</button>
+        <div id="savedLine" class="saved-line empty">No service time saved.</div>
+      </section>
+
+      <section class="panel" aria-labelledby="historyTitle">
+        <h2 class="panel-title" id="historyTitle">Recent Calls</h2>
+        <div class="history-list" id="historyList" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+  <div class="footer-note">Call and service records stay in this browser session. Download the CSV before closing the application.</div>
+
+  <div class="modal-backdrop" id="settingsBackdrop" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="settingsTitle">Settings <small>(Changes reflect immediately)</small></h2>
+        <button class="save-close" id="closeSettingsBtn" type="button">Save &amp; Close</button>
+      </div>
+      <div class="settings-body">
+        <div class="section-title"><span>System &amp; Audio Settings</span></div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="layoutMode">Layout Mode</label>
+            <select id="layoutMode"><option value="three">Timer + History (3 Panels)</option><option value="two">History Only (2 Panels)</option></select>
+          </div>
+          <div class="field">
+            <label for="ttsVoice">TTS Voice</label>
+            <select id="ttsVoice"><option value="">Browser default voice</option></select>
+          </div>
+          <div class="field">
+            <label for="fontFamily">Font Family</label>
+            <input id="fontFamily" value="Noto IKEA Latin, Noto Sans, Arial, sans-serif" />
+          </div>
+          <div class="field">
+            <label for="multiSeparator">Multi-call Spoken Separator</label>
+            <input id="multiSeparator" value=", and, " />
+          </div>
+          <div class="field">
+            <label for="ttsSpeed">TTS Speed</label>
+            <div class="speed-row"><input id="ttsSpeed" type="number" min="0.1" max="3" step="0.1" value="0.8" /><button id="testVoiceBtn" class="test-btn" type="button">▶ Test</button></div>
+          </div>
+          <div class="field">
+            <label for="numberWords">Number Pronunciation (MANDATORY)</label>
+            <input id="numberWords" value="Zero,One,Two,Three,Four,Five,Six,Seven,Eight,Nine" />
+            <div class="field-note">Enter exactly 10 comma-separated words for digits 0 through 9.</div>
+            <div class="validation" id="numberWordsError"></div>
+          </div>
+          <div class="field full">
+            <label for="broadcastMessage">Broadcast Message ({Number} required)</label>
+            <input id="broadcastMessage" value="Order number, {Number}, is now ready." />
+            <div class="validation" id="messageError"></div>
+          </div>
+        </div>
+
+        <div class="section-title"><span>UI Labels &amp; Text Settings</span></div>
+        <div class="form-grid">
+          <div class="field"><label for="leftPanelTitle">Left Panel Title</label><input id="leftPanelTitle" value="Call Customer (Enter)" /></div>
+          <div class="field"><label for="timerPanelTitle">Timer Panel Title</label><input id="timerPanelTitle" value="Service Timer (+)" /></div>
+          <div class="field"><label for="historyPanelTitle">History Panel Title</label><input id="historyPanelTitle" value="Recent Calls" /></div>
+          <div class="field"><label for="noHistoryMessage">No History Message</label><input id="noHistoryMessage" value="No history available." /></div>
+          <div class="field"><label for="callButtonText">Call Button Text</label><input id="callButtonText" value="CALL (Enter)" /></div>
+          <div class="field"><label for="timerStartText">Timer Start Button</label><input id="timerStartText" value="START (+)" /></div>
+          <div class="field"><label for="timerStopText">Timer Stop Button</label><input id="timerStopText" value="STOP (+)" /></div>
+          <div class="field full"><label for="guideSetting">Guide Text</label><textarea id="guideSetting">1. Press [+] to start the timer.
+2. Enter order number & press [Enter] to call.
+3. Use dot (.) for multiple orders (e.g., 1234.5678).
+4. Press [+] to stop the timer when finished.</textarea></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="flash" id="flash" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const defaults = {
+    layoutMode:'three', ttsVoice:'', fontFamily:'Noto IKEA Latin, Noto Sans, Arial, sans-serif',
+    multiSeparator:', and, ', ttsSpeed:'0.8', numberWords:'Zero,One,Two,Three,Four,Five,Six,Seven,Eight,Nine',
+    broadcastMessage:'Order number, {Number}, is now ready.', leftPanelTitle:'Call Customer (Enter)',
+    timerPanelTitle:'Service Timer (+)', historyPanelTitle:'Recent Calls', noHistoryMessage:'No history available.',
+    callButtonText:'CALL (Enter)', timerStartText:'START (+)', timerStopText:'STOP (+)',
+    guideSetting:'1. Press [+] to start the timer.\n2. Enter order number & press [Enter] to call.\n3. Use dot (.) for multiple orders (e.g., 1234.5678).\n4. Press [+] to stop the timer when finished.'
+  };
+  const settingIds = Object.keys(defaults);
+  let settings = {...defaults};
+  let calls = [];
+  let serviceSessions = [];
+  let timerRunning = false;
+  let timerStartedAt = null;
+  let timerInterval = null;
+  let voices = [];
+  let flashTimer = null;
+
+  function loadState(){
+    try { settings = {...defaults, ...(JSON.parse(localStorage.getItem('mpuCallerSettings') || '{}'))}; } catch(e) { settings={...defaults}; }
+    try { calls = JSON.parse(sessionStorage.getItem('mpuCallerCalls') || '[]'); } catch(e) { calls=[]; }
+    try { serviceSessions = JSON.parse(sessionStorage.getItem('mpuCallerService') || '[]'); } catch(e) { serviceSessions=[]; }
+  }
+  function saveSettings(){ localStorage.setItem('mpuCallerSettings', JSON.stringify(settings)); }
+  function saveSession(){ sessionStorage.setItem('mpuCallerCalls',JSON.stringify(calls)); sessionStorage.setItem('mpuCallerService',JSON.stringify(serviceSessions)); }
+  function escapeHtml(value){ return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+  function formatClock(date){ return date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
+  function formatDuration(totalSeconds){
+    const sec=Math.max(0,Math.floor(totalSeconds));
+    const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+    return h ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  function showFlash(message,isError=false){
+    const el=$('flash'); el.textContent=message; el.className='flash show'+(isError?' error':'');
+    clearTimeout(flashTimer); flashTimer=setTimeout(()=>el.className='flash',2700);
+  }
+  function validateSettings(showMessages=true){
+    const words=settings.numberWords.split(',').map(x=>x.trim()).filter(Boolean);
+    const numberOk=words.length===10;
+    const messageOk=settings.broadcastMessage.includes('{Number}');
+    $('numberWordsError').textContent=showMessages&&!numberOk?'Exactly 10 pronunciation words are required.':'';
+    $('messageError').textContent=showMessages&&!messageOk?'The message must include {Number}.':'';
+    return numberOk&&messageOk;
+  }
+  function syncFormFromSettings(){
+    settingIds.forEach(id => { if($(id)) $(id).value=settings[id]; });
+  }
+  function applySettings(){
+    document.documentElement.style.setProperty('--font', settings.fontFamily || defaults.fontFamily);
+    $('leftTitle').textContent=settings.leftPanelTitle;
+    $('timerTitle').textContent=settings.timerPanelTitle;
+    $('historyTitle').textContent=settings.historyPanelTitle;
+    $('callBtn').textContent=settings.callButtonText;
+    $('timerBtn').textContent=timerRunning?settings.timerStopText:settings.timerStartText;
+    $('guideText').textContent=settings.guideSetting;
+    const two=settings.layoutMode==='two';
+    $('timerPanel').hidden=two;
+    $('panelGrid').classList.toggle('two-panels',two);
+    renderHistory();
+    validateSettings(false);
+  }
+  function readSettingsFromForm(){
+    settingIds.forEach(id => { if($(id)) settings[id]=$(id).value; });
+    saveSettings(); applySettings(); validateSettings(true);
+  }
+  function renderHistory(){
+    const host=$('historyList');
+    if(!calls.length){ host.innerHTML=`<div class="no-history">${escapeHtml(settings.noHistoryMessage)}</div>`; return; }
+    host.innerHTML=calls.slice().reverse().map(call=>`<div class="history-row"><div class="history-number">${escapeHtml(call.display)}</div><div class="history-time">[${escapeHtml(call.time)}]</div></div>`).join('');
+  }
+  function getPronouncedDigits(number){
+    const words=settings.numberWords.split(',').map(x=>x.trim());
+    return number.split('').map(ch => /\d/.test(ch) ? words[Number(ch)] : ch).join(' ');
+  }
+  function parseOrderNumbers(raw){ return raw.split('.').map(v=>v.trim()).filter(Boolean); }
+  function speakNumbers(numbers, isTest=false){
+    if(!('speechSynthesis' in window)){ showFlash('Text-to-speech is not supported by this browser.',true); return false; }
+    if(!validateSettings(true)){ showFlash('Please correct the required audio settings.',true); return false; }
+    const spokenNumbers=numbers.map(getPronouncedDigits).join(settings.multiSeparator);
+    const phrase=settings.broadcastMessage.replaceAll('{Number}',spokenNumbers);
+    speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance(phrase);
+    utterance.rate=Math.min(3,Math.max(.1,Number(settings.ttsSpeed)||.8));
+    const voice=voices.find(v=>v.voiceURI===settings.ttsVoice || v.name===settings.ttsVoice);
+    if(voice) utterance.voice=voice;
+    utterance.onerror=()=>showFlash('The selected voice could not play. Try another browser voice.',true);
+    speechSynthesis.speak(utterance);
+    if(isTest) showFlash('Playing TTS test.');
+    return true;
+  }
+  function callCustomer(){
+    const raw=$('orderInput').value.trim();
+    const numbers=parseOrderNumbers(raw);
+    if(!numbers.length){ showFlash('Enter an order number first.',true); $('orderInput').focus(); return; }
+    if(!speakNumbers(numbers)) return;
+    const now=new Date();
+    calls.push({display:numbers.join(' · '), numbers, time:formatClock(now), iso:now.toISOString()});
+    saveSession(); renderHistory(); $('orderInput').value=''; $('orderInput').focus();
+  }
+  function timerElapsed(){ return timerRunning ? Math.floor((Date.now()-timerStartedAt)/1000) : 0; }
+  function updateTimer(){ $('timerDisplay').textContent=formatDuration(timerElapsed()); }
+  function startTimer(){
+    timerRunning=true; timerStartedAt=Date.now();
+    $('timerBtn').classList.add('running'); $('timerBtn').textContent=settings.timerStopText;
+    $('savedLine').className='saved-line empty'; $('savedLine').textContent='Timer running…';
+    updateTimer(); timerInterval=setInterval(updateTimer,250);
+  }
+  function stopTimer(){
+    const endedAt=new Date(); const seconds=timerElapsed(); clearInterval(timerInterval); timerInterval=null; timerRunning=false;
+    serviceSessions.push({startedAt:new Date(timerStartedAt).toISOString(),endedAt:endedAt.toISOString(),seconds});
+    saveSession(); $('timerDisplay').textContent=formatDuration(seconds); $('timerBtn').classList.remove('running'); $('timerBtn').textContent=settings.timerStartText;
+    $('savedLine').className='saved-line'; $('savedLine').textContent=`✓ Saved: ${formatDuration(seconds)}`; timerStartedAt=null;
+  }
+  function toggleTimer(){ timerRunning?stopTimer():startTimer(); }
+  function csvCell(value){ const s=String(value??''); return '"'+s.replaceAll('"','""')+'"'; }
+  function downloadCSV(){
+    if(!calls.length&&!serviceSessions.length){ showFlash('There are no records to export yet.',true); return; }
+    const rows=[['Record Type','Order Number(s)','Called At','Service Started','Service Ended','Service Seconds','Service Duration']];
+    calls.forEach(c=>rows.push(['Customer Call',c.numbers.join('.'),c.iso,'','','','']));
+    serviceSessions.forEach(s=>rows.push(['Service Timer','','',s.startedAt,s.endedAt,s.seconds,formatDuration(s.seconds)]));
+    const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    const stamp=new Date().toISOString().slice(0,19).replaceAll(':','-'); a.href=url; a.download=`MPU_Caller_Log_${stamp}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    showFlash('CSV downloaded.');
+  }
+  function loadVoices(){
+    if(!('speechSynthesis' in window)) return;
+    voices=speechSynthesis.getVoices().slice().sort((a,b)=>a.lang.localeCompare(b.lang)||a.name.localeCompare(b.name));
+    const select=$('ttsVoice'); const current=settings.ttsVoice;
+    select.innerHTML='<option value="">Browser default voice</option>'+voices.map(v=>`<option value="${escapeHtml(v.voiceURI)}">${escapeHtml(v.name)} — ${escapeHtml(v.lang)}${v.default?' (Default)':''}</option>`).join('');
+    select.value=voices.some(v=>v.voiceURI===current)?current:'';
+    if(current && !select.value) settings.ttsVoice='';
+  }
+  function openSettings(){ syncFormFromSettings(); loadVoices(); $('settingsBackdrop').classList.add('open'); document.body.style.overflow='hidden'; $('layoutMode').focus(); }
+  function closeSettings(){ readSettingsFromForm(); if(!validateSettings(true)){ showFlash('Settings saved, but required TTS fields need correction.',true); return; } $('settingsBackdrop').classList.remove('open'); document.body.style.overflow=''; $('orderInput').focus(); showFlash('Settings saved.'); }
+
+  loadState(); syncFormFromSettings(); applySettings();
+  if(serviceSessions.length){ const last=serviceSessions.at(-1); $('timerDisplay').textContent=formatDuration(last.seconds); $('savedLine').className='saved-line'; $('savedLine').textContent=`✓ Saved: ${formatDuration(last.seconds)}`; }
+  loadVoices(); if('speechSynthesis' in window) speechSynthesis.onvoiceschanged=loadVoices;
+
+  $('callBtn').addEventListener('click',callCustomer);
+  $('orderInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();callCustomer();} });
+  $('timerBtn').addEventListener('click',toggleTimer);
+  $('downloadBtn').addEventListener('click',downloadCSV);
+  $('settingsBtn').addEventListener('click',openSettings);
+  $('closeSettingsBtn').addEventListener('click',closeSettings);
+  $('testVoiceBtn').addEventListener('click',()=>{readSettingsFromForm();speakNumbers(['1234'],true);});
+  settingIds.forEach(id=>{ const el=$(id); if(el) el.addEventListener(el.tagName==='SELECT'?'change':'input',readSettingsFromForm); });
+  $('settingsBackdrop').addEventListener('mousedown',e=>{ if(e.target===$('settingsBackdrop')) closeSettings(); });
+  document.addEventListener('keydown',e=>{
+    const modalOpen=$('settingsBackdrop').classList.contains('open');
+    if(e.key==='Escape'&&modalOpen){closeSettings();return;}
+    if(modalOpen)return;
+    if(e.key==='+'||e.code==='NumpadAdd'){e.preventDefault();toggleTimer();}
+  });
+  window.addEventListener('beforeunload',e=>{ if(calls.length||serviceSessions.length){e.preventDefault();e.returnValue='';} });
+})();
+</script>
+</body>
+</html>
